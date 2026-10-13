@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Крути колесо и забирай свой приз</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#ffd3e6;--ink:#3d0a24;--pink:#ff4f93;--deep:#d81b6a;--card:#fff1f7;--muted:#7d2c55;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#3a0b22;--ink:#ffe3ee;--card:#4f1330;--muted:#ffb3d1}}
+:root[data-theme="dark"]{--bg:#3a0b22;--ink:#ffe3ee;--card:#4f1330;--muted:#ffb3d1}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Manrope,system-ui,sans-serif;line-height:1.5;text-align:center}
+main{max-width:520px;margin:0 auto;padding:32px 16px 48px}
+h1{font-family:Unbounded,Impact,sans-serif;font-weight:800;font-size:clamp(1.6rem,7vw,2.6rem);line-height:1.12;margin:0 0 24px;letter-spacing:-.02em}
+.stage{position:relative;width:min(100%,420px);margin:0 auto}
+canvas{display:block;width:100%;height:auto;border-radius:50%;box-shadow:0 0 0 8px var(--deep),0 10px 30px rgba(120,10,60,.35)}
+.pointer{position:absolute;top:-14px;left:50%;width:0;height:0;transform:translateX(-50%);
+border-left:16px solid transparent;border-right:16px solid transparent;border-top:34px solid var(--ink);z-index:2}
+button{margin-top:28px;font:600 1.25rem Manrope,system-ui,sans-serif;background:var(--deep);color:#fff;border:0;border-radius:999px;padding:16px 36px;cursor:pointer}
+button:hover:not(:disabled){background:#b8135a}
+button:disabled{opacity:.6;cursor:default}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+#result{min-height:5.5rem;margin-top:24px;font-family:Unbounded,sans-serif;font-size:1.3rem}
+#result small{display:block;font:400 1rem Manrope,sans-serif;color:var(--muted);margin-bottom:4px}
+#result b{color:var(--deep)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) #result b{color:#ff7db3}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Крути колесо и забирай свой приз</h1>
+  <div class="stage">
+    <div class="pointer" aria-hidden="true"></div>
+    <canvas id="wheel" width="840" height="840" role="img" aria-label="Колесо с призами"></canvas>
+  </div>
+  <button id="spin" type="button">Крутить</button>
+  <div id="result" role="status" aria-live="polite"></div>
+</main>
+<script>
+(function(){
+  var prizes=["Пиздюли","Поцелуй","Вкусный ужин","Двойные пиздюли","Минет"];
+  var colors=["#ff4f93","#ffb3d1","#d81b6a","#ff8fbf","#a8124f"];
+  var textColors=["#fff","#3d0a24","#fff","#3d0a24","#fff"];
+  var canvas=document.getElementById("wheel"),ctx=canvas.getContext("2d");
+  var size=canvas.width,c=size/2,R=c-8,n=prizes.length,seg=2*Math.PI/n;
+  var rotation=0,spinning=false;
+  var btn=document.getElementById("spin"),result=document.getElementById("result");
+  var reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function draw(){
+    ctx.clearRect(0,0,size,size);
+    for(var i=0;i<n;i++){
+      var a=rotation+i*seg-Math.PI/2;
+      ctx.beginPath();ctx.moveTo(c,c);ctx.arc(c,c,R,a,a+seg);ctx.closePath();
+      ctx.fillStyle=colors[i];ctx.fill();
+      ctx.lineWidth=4;ctx.strokeStyle="#fff";ctx.stroke();
+      ctx.save();
+      ctx.translate(c,c);ctx.rotate(a+seg/2);
+      ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillStyle=textColors[i];
+      var fs=38;ctx.font="800 "+fs+"px Manrope, sans-serif";
+      while(ctx.measureText(prizes[i]).width>R-120&&fs>16){fs-=2;ctx.font="800 "+fs+"px Manrope, sans-serif";}
+      ctx.fillText(prizes[i],R-34,0);
+      ctx.restore();
+    }
+    ctx.beginPath();ctx.arc(c,c,46,0,2*Math.PI);ctx.fillStyle="#fff";ctx.fill();
+    ctx.lineWidth=8;ctx.strokeStyle="#d81b6a";ctx.stroke();
+    ctx.fillStyle="#d81b6a";ctx.font="44px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.fillText("♥",c,c+3);
+  }
+
+  function spin(){
+    if(spinning)return;
+    spinning=true;btn.disabled=true;result.innerHTML="";
+    var winner=Math.floor(Math.random()*n);
+    var offset=(Math.random()-0.5)*seg*0.7;
+    var finalMod=((-(winner+0.5)*seg-offset)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+    var startMod=((rotation%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+    var delta=((finalMod-startMod)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+    var spins=reduce?1:5+Math.floor(Math.random()*3);
+    var start=rotation,target=start+spins*2*Math.PI+delta;
+    var dur=reduce?800:5000,t0=null;
+    function frame(t){
+      if(t0===null)t0=t;
+      var p=Math.min((t-t0)/dur,1),e=1-Math.pow(1-p,4);
+      rotation=start+(target-start)*e;draw();
+      if(p<1){requestAnimationFrame(frame);}
+      else{
+        spinning=false;btn.disabled=false;btn.textContent="Крутить ещё раз";
+        result.innerHTML="<small>Твой приз</small><b>"+prizes[winner]+"</b>";
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  btn.addEventListener("click",spin);
+  draw();
+  if(document.fonts&&document.fonts.ready){document.fonts.ready.then(draw);}
+})();
+</script>
+</body>
+</html>
